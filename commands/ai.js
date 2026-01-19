@@ -107,26 +107,20 @@ function recognizeNicknamesForAI(message, userNicknames) {
   let processedMessage = message;
   
   for (const nickname of sortedNicknames) {
-    // Create patterns for matching the nickname
+    // Create patterns for matching the nickname (excluding ones already prefixed with @)
+    // Note: Patterns include @ in negative lookbehind and lookahead to avoid matching "@A-kun"
     const patterns = [
-      new RegExp(`\\b${escapeRegExp(nickname)}\\b`, 'gi'), // Complete word match (alphanumeric)
+      new RegExp(`(?<![@a-zA-Z0-9_-])\\b${escapeRegExp(nickname)}\\b(?![a-zA-Z0-9_-])`, 'gi'), // Complete word match with @ check
       new RegExp(`(?<![a-zA-Z0-9_@-])${escapeRegExp(nickname)}(?![a-zA-Z0-9_@-])`, 'gi'), // Boundary excluding alphanumeric/underscore/hyphen and @
-      new RegExp(`(?<=[\\s、。！？,!?]|^)${escapeRegExp(nickname)}(?=[\\s、。！？,!?]|$)`, 'gi'), // Punctuation/space/start/end boundaries
+      new RegExp(`(?<=[\\s、。！？,!?]|^)(?<!@)${escapeRegExp(nickname)}(?=[\\s、。！？,!?]|$)`, 'gi'), // Punctuation/space/start/end boundaries, excluding @
     ];
 
     // Try each pattern and replace if matched
-    // Only add @ prefix if not already present
+    // The patterns already exclude names with @ prefix, so we can directly add @
     for (const pattern of patterns) {
       const matches = processedMessage.match(pattern);
       if (matches) {
-        // Use replace with a function that has access to the offset parameter
-        processedMessage = processedMessage.replace(pattern, (match, offset) => {
-          // Check if @ is already before this match using the actual offset
-          if (offset > 0 && processedMessage[offset - 1] === '@') {
-            return match; // Already has @, don't add another
-          }
-          return `@${match}`;
-        });
+        processedMessage = processedMessage.replace(pattern, (match) => `@${match}`);
         break; // Stop after first successful match for this nickname
       }
     }
