@@ -110,7 +110,7 @@ function recognizeNicknamesForAI(message, userNicknames) {
     // Create patterns for matching the nickname
     const patterns = [
       new RegExp(`\\b${escapeRegExp(nickname)}\\b`, 'gi'), // Complete word match (alphanumeric)
-      new RegExp(`(?<![a-zA-Z0-9_@-])${escapeRegExp(nickname)}(?![a-zA-Z0-9_-])`, 'gi'), // Boundary excluding alphanumeric/underscore/hyphen and @
+      new RegExp(`(?<![a-zA-Z0-9_@-])${escapeRegExp(nickname)}(?![a-zA-Z0-9_@-])`, 'gi'), // Boundary excluding alphanumeric/underscore/hyphen and @
       new RegExp(`(?<=[\\s、。！？,!?]|^)${escapeRegExp(nickname)}(?=[\\s、。！？,!?]|$)`, 'gi'), // Punctuation/space/start/end boundaries
     ];
 
@@ -119,10 +119,10 @@ function recognizeNicknamesForAI(message, userNicknames) {
     for (const pattern of patterns) {
       const matches = processedMessage.match(pattern);
       if (matches) {
-        processedMessage = processedMessage.replace(pattern, (match) => {
-          // Check if @ is already before this match
-          const matchIndex = processedMessage.indexOf(match);
-          if (matchIndex > 0 && processedMessage[matchIndex - 1] === '@') {
+        // Use replace with a function that has access to the offset parameter
+        processedMessage = processedMessage.replace(pattern, (match, offset) => {
+          // Check if @ is already before this match using the actual offset
+          if (offset > 0 && processedMessage[offset - 1] === '@') {
             return match; // Already has @, don't add another
           }
           return `@${match}`;
