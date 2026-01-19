@@ -24,6 +24,9 @@ function escapeRegExp(string) {
 
 /**
  * Replace nicknames with Discord mentions in a message
+ * NOTE: This function is kept for backwards compatibility but should NOT be used
+ * for normal message processing as it creates unwanted Discord mentions.
+ * Only use this when you explicitly want to create Discord mentions from nicknames.
  * @param {string} message - The message to process
  * @param {object} userNicknames - Object mapping Discord IDs to nicknames
  * @param {object} guild - Discord guild object for validation
@@ -69,6 +72,55 @@ function replaceNicknamesWithMentions(message, userNicknames, guild) {
       const matches = processedMessage.match(pattern);
       if (matches) {
         processedMessage = processedMessage.replace(pattern, () => `<@${discordId}>`);
+        break; // Stop after first successful match for this nickname
+      }
+    }
+  }
+
+  return processedMessage;
+}
+
+/**
+ * Recognize nicknames in conversation for AI understanding without creating Discord mentions
+ * This function adds @ prefix to recognized nicknames so the AI understands who is being 
+ * talked about, but does NOT create actual Discord mentions to avoid triggering notifications.
+ * @param {string} message - The message to process
+ * @param {object} userNicknames - Object mapping Discord IDs to nicknames
+ * @returns {string} Message with recognized nicknames prefixed with @ for AI understanding
+ */
+function recognizeNicknamesForAI(message, userNicknames) {
+  if (!message || !userNicknames || Object.keys(userNicknames).length === 0) {
+    return message;
+  }
+
+  // Create reverse mapping: nickname -> Discord ID
+  const nameToIdMap = {};
+  for (const [discordId, nickname] of Object.entries(userNicknames)) {
+    if (nickname && typeof nickname === 'string') {
+      nameToIdMap[nickname] = discordId;
+    }
+  }
+
+  // Sort nicknames by length (longest first) to avoid partial matches
+  const sortedNicknames = Object.keys(nameToIdMap).sort((a, b) => b.length - a.length);
+
+  let processedMessage = message;
+  
+  for (const nickname of sortedNicknames) {
+    // Create patterns for matching the nickname (excluding ones already prefixed with @)
+    // Note: Patterns include @ in negative lookbehind and lookahead to avoid matching "@A-kun"
+    const patterns = [
+      new RegExp(`(?<![@a-zA-Z0-9_-])\\b${escapeRegExp(nickname)}\\b(?![a-zA-Z0-9_-])`, 'gi'), // Complete word match with @ check
+      new RegExp(`(?<![a-zA-Z0-9_@-])${escapeRegExp(nickname)}(?![a-zA-Z0-9_@-])`, 'gi'), // Boundary excluding alphanumeric/underscore/hyphen and @
+      new RegExp(`(?<=[\\s、。！？,!?]|^)(?<!@)${escapeRegExp(nickname)}(?=[\\s、。！？,!?]|$)`, 'gi'), // Punctuation/space/start/end boundaries, excluding @
+    ];
+
+    // Try each pattern and replace if matched
+    // The patterns already exclude names with @ prefix, so we can directly add @
+    for (const pattern of patterns) {
+      const matches = processedMessage.match(pattern);
+      if (matches) {
+        processedMessage = processedMessage.replace(pattern, (match) => `@${match}`);
         break; // Stop after first successful match for this nickname
       }
     }
@@ -299,29 +351,28 @@ module.exports = {
         collector.on("collect", async (message) => {
           if (!message.content) return;
 
-          // Three-step nickname processing:
-          // 1. Replace nicknames with mentions: Converts "A-kun" -> "<@123456...>"
-          //    This ensures Discord IDs are properly captured for processing
-          // 2. Replace mentions with nicknames: Converts "<@123456...>" -> "@A-kun"
-          //    This provides natural names to the AI for better understanding
-          // 3. Check sender's nickname: Use userNicknames[sender_id] for the sender's name
-          //    This ensures the AI recognizes the sender by their assigned nickname
+          // Two-step nickname processing for AI understanding:
+          // 1. Convert actual Discord mentions to nicknames: "<@123456...>" -> "@A-kun"
+          //    This handles cases where users use Discord's @ mention feature
+          // 2. Recognize nicknames in conversation: "A-kun" -> "@A-kun" (for AI only)
+          //    This helps AI understand who is being talked about WITHOUT creating Discord mentions
           // 
-          // Why three steps? Users might reference people using nicknames in text,
-          // but the bot needs to validate these against actual Discord IDs first,
-          // then present them to AI in a natural format. Additionally, the sender's
-          // own nickname should be recognized from the mapping for consistency.
-          let processedContent = replaceNicknamesWithMentions(
+          // Why this approach?
+          // - Actual Discord mentions (using @) are preserved and understood by AI
+          // - Plain text names in conversation are recognized by AI but DON'T trigger notifications
+          // - The sender's nickname is tracked separately for consistency
+          
+          // First, replace actual Discord mentions with nicknames for AI understanding
+          let processedContent = replaceMentionsWithNicknames(
             message.content,
             userNicknames,
             message.guild
           );
 
-          // Then replace mentions with nicknames for AI understanding
-          processedContent = replaceMentionsWithNicknames(
+          // Then, recognize nicknames in the text for AI understanding (without creating Discord mentions)
+          processedContent = recognizeNicknamesForAI(
             processedContent,
-            userNicknames,
-            message.guild
+            userNicknames
           );
 
           // Check if sender has a nickname assignment
@@ -394,5 +445,6 @@ module.exports = {
   replaceMentionsWithNames,
   replaceMentionsWithNicknames,
   replaceNicknamesWithMentions,
+  recognizeNicknamesForAI,
   escapeRegExp
 };
