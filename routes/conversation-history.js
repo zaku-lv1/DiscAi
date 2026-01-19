@@ -60,10 +60,18 @@ router.get("/list", async (req, res) => {
       });
     }
 
-    const conversations = await conversationHistory.getChannelConversations(channelId);
+    // Validate channelId format (Discord channel IDs are 17-19 digit numbers)
+    if (!/^\d{17,19}$/.test(channelId.trim())) {
+      return res.status(400).json({ 
+        error: "Validation error",
+        message: "channelId must be a valid Discord channel ID (17-19 digits)" 
+      });
+    }
+
+    const conversations = await conversationHistory.getChannelConversations(channelId.trim());
 
     res.status(200).json({ 
-      channelId,
+      channelId: channelId.trim(),
       conversations 
     });
   } catch (error) {
