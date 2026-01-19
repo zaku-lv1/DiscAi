@@ -151,10 +151,10 @@ Associate friendly nicknames with Discord user IDs for more natural conversation
 ```
 
 **How it works**:
-1. User: "Hey A-kun, how are you?"
-2. Bot converts: "Hey <@123456789012345678>, how are you?"
-3. AI understands: "Hey @A-kun, how are you?"
-4. AI responds naturally without creating unnecessary mentions
+1. **Plain text mentions**: "Hey A-kun, how are you?" → AI sees "Hey @A-kun, how are you?" (no Discord notification)
+2. **Discord mentions**: User uses @mention → Bot converts to "@A-kun" for AI understanding
+3. **AI recognition**: AI recognizes names in conversation without triggering notifications
+4. **Natural conversation**: Only actual Discord @ mentions trigger notifications, plain text names don't
 
 **API Usage**:
 ```bash
