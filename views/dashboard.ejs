@@ -310,6 +310,55 @@
     .nickname-hint {
       margin-bottom: 15px;
     }
+    
+    /* Conversation history clear styles */
+    .conversation-clear-section {
+      margin-top: 10px;
+    }
+    
+    .conversation-input-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .conversation-input-row input {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    
+    .conversation-input-row input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .btn-clear-history {
+      padding: 12px 20px;
+      background: #dc3545;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+    
+    .btn-clear-history:hover {
+      background: #c82333;
+      transform: translateY(-1px);
+    }
+    
+    .btn-clear-history:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
   </style>
 </head>
 <body>
@@ -423,6 +472,27 @@
           </div>
         </div>
         
+        <div class="form-group">
+          <label>会話履歴のクリア</label>
+          <div class="form-hint">
+            特定のチャンネルの会話履歴を削除します。チャンネルIDを入力してクリアボタンをクリックしてください。
+          </div>
+          
+          <div class="conversation-clear-section">
+            <div class="conversation-input-row">
+              <input 
+                type="text" 
+                id="clearChannelId" 
+                placeholder="チャンネルID (例: 123456789012345678)"
+              />
+              <button type="button" class="btn-clear-history" id="clearHistoryBtn">🗑️ 履歴をクリア</button>
+            </div>
+            <div class="form-hint" style="margin-top: 8px;">
+              💡 チャンネルIDの確認方法: Discord開発者モードを有効にして、チャンネルを右クリック → 「IDをコピー」
+            </div>
+          </div>
+        </div>
+        
         <div class="button-group">
           <button type="button" class="btn-reload" id="reloadBtn">↻ 再読み込み</button>
           <button type="submit" class="btn-save">💾 設定を保存</button>
@@ -449,6 +519,9 @@
       
       // Add event listener for add nickname button
       document.getElementById('addNicknameBtn').addEventListener('click', addNickname);
+      
+      // Add event listener for clear history button
+      document.getElementById('clearHistoryBtn').addEventListener('click', clearConversationHistory);
       
       // Add event listener for reload button
       document.getElementById('reloadBtn').addEventListener('click', loadSettings);
@@ -650,6 +723,57 @@
       } finally {
         saveButton.disabled = false;
         saveButton.textContent = '💾 設定を保存';
+      }
+    }
+    
+    async function clearConversationHistory() {
+      const channelIdInput = document.getElementById('clearChannelId');
+      const clearButton = document.getElementById('clearHistoryBtn');
+      const channelId = channelIdInput.value.trim();
+      
+      if (!channelId) {
+        showMessage('チャンネルIDを入力してください', 'error');
+        return;
+      }
+      
+      // Validate Discord channel ID format (17-19 digits)
+      if (!DISCORD_ID_REGEX.test(channelId)) {
+        showMessage('チャンネルIDは17-19桁の数字である必要があります', 'error');
+        return;
+      }
+      
+      // Confirm before clearing
+      if (!confirm(`チャンネルID: ${channelId}\n\nこのチャンネルの会話履歴を削除してもよろしいですか？\n\nこの操作は取り消せません。`)) {
+        return;
+      }
+      
+      clearButton.disabled = true;
+      clearButton.textContent = '🗑️ クリア中...';
+      
+      try {
+        const response = await fetch('/api/conversation-history/clear', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ channelId })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to clear history: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        showMessage(`✅ 会話履歴を削除しました (チャンネル: ${channelId})`, 'success');
+        
+        // Clear input field
+        channelIdInput.value = '';
+      } catch (error) {
+        showMessage(`会話履歴のクリアエラー: ${error.message}`, 'error');
+      } finally {
+        clearButton.disabled = false;
+        clearButton.textContent = '🗑️ 履歴をクリア';
       }
     }
   </script>

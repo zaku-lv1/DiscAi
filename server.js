@@ -17,6 +17,7 @@ const { ipAllowlist } = require("./middleware/ip-allowlist");
 
 // Routes
 const settingsAiRoutes = require("./routes/settings-ai");
+const conversationHistoryRoutes = require("./routes/conversation-history");
 
 class Server {
   constructor() {
@@ -141,6 +142,7 @@ class Server {
 
     // API routes (IP protected)
     this.app.use("/api/settings", ipAllowlist, settingsAiRoutes);
+    this.app.use("/api/conversation-history", ipAllowlist, conversationHistoryRoutes);
   }
 
   setupErrorHandling() {
